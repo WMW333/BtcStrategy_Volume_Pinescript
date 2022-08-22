@@ -1,0 +1,118 @@
+// © Arcotrade
+//@version=4
+
+//Ticker: btcusdtperp
+//Exchange: Binancefutures
+//Timeframe: Orario
+
+strategy(title="Btcperp_h1", overlay=true)
+
+//FINESTRA TEMPORALE
+daMese = input(defval= 6, title= 'Dal Mese', minval= 1)
+daGiorno = input(defval= 1, title= 'Dal Giorno', minval= 1)
+daAnno = input(defval= 2020, title= 'Da Anno', minval= 1)
+
+aMese = input(defval= 2, title= 'Al Mese', minval= 1)
+aGiorno = input(defval= 28, title= 'Al Giorno', minval= 1)
+aAnno = input(defval= 2021, title= 'A anno', minval= 1)
+
+//
+V = volume
+body = (close - open)
+
+//bande bollinger
+// SmaBB = input(defval = 60, title = "SmaBB" )
+// basis = sma(close, SmaBB)
+// Dev = input (defval = 3, title = "Dev")
+// dev = Dev * stdev(close, SmaBB)
+// upper = basis + dev
+// lower = basis - dev
+
+//medie mobili esponenziali (usate solo per filtrare operazioni)
+// ema10 = ema(close, 10)
+// ema15 = ema(close, 15)
+// ema60 = ema(close, 60)
+
+//plot(ema10, title= "10", color= #fff100, linewidth=1)
+//plot(ema15, title= "15", color= #ff0000, linewidth=1)
+//plot(ema60, title= "60", color= #ffffff, linewidth=2)
+
+//
+//highest: valore più grande per un dato numero di barre addietro. Highest(source, lenght)
+//highest = highest(high, 100)
+
+//SPIKE (differenziatI per colore candela)
+//Spikeup 
+spikeUpGreen = (((high - close) / close) * 100)
+spikeUpRed = (((high - open) / open) * 100)
+
+//SpikeDown
+spikeDownGreen = (((low - open) / open) * 100)
+spikeDownRed = (((low - close) / close) * 100)
+
+
+//POSIZIONE
+margine = input(defval = 100, title = "Margine $", minval = 1)
+leva = input(defval = 100, title = "Leva x", minval = 1)
+Qty_Posizione = ((margine * leva) / close [1]) //input(defval = 0.2, title = "Quantità posizione", minval = 0.00000001)
+
+
+//SOGLIE
+Soglia_Volumi = input(defval= 10000, title = "Soglia Volumi", minval = 100)
+Soglia_Volumi_Precedente = input(defval = 2000000, title = "Soglia Vol. barra precedente", minval = 1)
+Soglia_spikeUpGreen = input(defval = 0.9, title = "Soglia SpikeUp Green x Short")
+Soglia_spikeDownRed =  input(defval = -0.7, title = "Soglia SpikeDown Red x Long") 
+Soglia_ATR = input(defval = 5000000, title = "Soglia ATR")
+Soglia_SpikeDown_Reverse_per_short = input(defval = -1, title = "Soglia SpikeDown Reverse x short")
+Soglia_SpikeUp_Reverse_per_long = input(defval = 1, title = "Soglia SpikeUp Reverse x long")
+
+
+//CONDIZIONI D'INGRESSO
+shortcondition = body > 0 and spikeUpGreen > Soglia_spikeUpGreen and V > Soglia_Volumi and spikeDownGreen > Soglia_SpikeDown_Reverse_per_short and V[1] < Soglia_Volumi_Precedente and atr(14) < Soglia_ATR //and high > highest //and close > upper //and not short //or body < 0 and spikeUpRed > 0.17 and spikeDownRed > -0.1 and V > 1100 and V[1] < 1500 and close > ema10 and close > ema15
+
+longcondition = body < 0 and spikeDownRed < Soglia_spikeDownRed and V > Soglia_Volumi and spikeUpRed < Soglia_SpikeUp_Reverse_per_long  and V [1] < Soglia_Volumi_Precedente and atr(14) < Soglia_ATR and not shortcondition//and close < lower // or body > 0 and spikeDownRed < -0.2 and V > 1400 and spikeUpGreen < 0.1 and spikeUpRed < 0.1 and spikeUpGreen> -0.1 and V > 1500 and V[1] < 1500
+
+//CONDIZIONI D'USCITA
+// closelong = V > Soglia_Volumi and high > ema60 and
+// closeshort = V > Soglia_Volumi and low < ema15 and 
+
+//INGRESSO A MERCATO
+strategy.entry("long", strategy.long, qty = Qty_Posizione, when = longcondition)
+strategy.entry("short", strategy.short, qty = Qty_Posizione, when = shortcondition)
+
+
+//TRAIL POINTS: livello di attivazione trailing stop (specificato in tick)
+trailpoints = input(defval = 1300, title = "Trailing points(livello attivazione")
+
+//TRAIL OFFSET: prezzo di stop del trailing (specificato in tick)
+trailoffset = input(defval = 100, title = "Trailing offset (x tick sopra o sotto trail point")
+
+//STOP LOSS:
+lossLong = input(defval = 1400, title = "SL Long in ticks")
+lossShort = input(defval = 1400, title = "SL Short in ticks")
+
+//CHIUSURA POSIZIONI
+strategy.exit("exit", "long", qty = Qty_Posizione, trail_points = trailpoints , trail_offset = trailoffset, loss = lossLong) // profit = profitLong
+strategy.exit("exit", "short", qty = Qty_Posizione, trail_points = trailpoints, trail_offset = trailoffset, loss = lossShort) // profit = profitShort
+
+//SOGLIA MASSIMI TRADE GIORNALIERI
+Max_trade_giornalieri = input(defval = 20, title = "Max trades giornalieri")
+strategy.risk.max_intraday_filled_orders(Max_trade_giornalieri)
+
+//MAX PERDITA GIORNALIERA
+Max_loss_giornaliera = input(defval = 500, title = "Max perdita giornaliera $")
+strategy.risk.max_intraday_loss(Max_loss_giornaliera, strategy.cash)
+
+// strategy.close("long", when = closeshort)
+// strategy.close("short", when = closelong)
+
+
+// plot(ema10, title= "10", color= #00ffaa, linewidth=3)
+// plot(ema60, title= "60", color= #FFC1CC, linewidth=2)
+
+// start = timestamp(2019, 1, 1,0 ,0)
+// end = timestamp(2022, 2, 24,0,0)
+
+// if time >= start and time <= end
+//     strategy.entry("long", strategy.long, 1.0, when = longcondition)
+//     strategy.entry("short", strategy.short, 1.0, when = shortcondition)
