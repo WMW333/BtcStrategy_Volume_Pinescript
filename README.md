@@ -1,2 +1,6 @@
 # BtcStrategy_Volume_Pinescript
-Strategy on BTCUSDTPERP Binance Futures. Pinescript. Timeframe h1
+Volume based strategy on Bitcoin.
+Ticker: btcusdtperp
+Exchange: Binance Futures. 
+Timeframe: h1
+Pinescript.
